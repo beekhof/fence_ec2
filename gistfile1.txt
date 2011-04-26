@@ -64,6 +64,66 @@ function usage()
     exit 0;
 }
 
+function metadata()
+{
+    echo '<?xml version="1.0" ?>'
+    echo '<resource-agent name="fence_ec2" shortdesc="Fence agent for Amazon EC2 instances" >'
+    echo '<longdesc>'
+    echo '  fence_ec2 is an I/O Fencing agent which can be used with Amazon EC2 instances.'
+    echo '  Depending on the host names used, the agent should be able to automatically discover the instances it can control'
+    echo '  '
+    echo '  In order to function, the agent needs the private key and cert used by the Amazon EC2 API.'
+    echo '</longdesc>'
+    echo '<parameters>'
+    echo '	<parameter name="action" unique="1" required="1">'
+    echo '		<getopt mixed="-o, --action=[action]" />'
+    echo '		<content type="string" default="reboot" />'
+    echo '		<shortdesc lang="en">Fencing Action</shortdesc>'
+    echo '	</parameter>'
+    echo '	<parameter name="port" unique="1" required="1">'
+    echo '		<getopt mixed="-n, --port=[port]" />'
+    echo '		<content type="string" />'
+    echo '		<shortdesc lang="en">The name/id/tag of a instance to control/check</shortdesc>'
+    echo '	</parameter>'
+    echo '	<parameter name="ec2-home" unique="1" required="1">'
+    echo '		<getopt mixed="-e, --ec2-home=[directory]" />'
+    echo '		<content type="string" default="~/.ec2" />'
+    echo '		<shortdesc lang="en">Location of Amazon EC2 command line tools</shortdesc>'
+    echo '	</parameter>'
+    echo '	<parameter name="private-key" unique="1" required="1">'
+    echo '		<getopt mixed="-k, --private-key=[filename]" />'
+    echo '		<content type="string" default="$ec2-home/pk-*.pem" />'
+    echo '		<shortdesc lang="en">The private key to use when constructing requests to Amazon EC2</shortdesc>'
+    echo '	</parameter>'
+    echo '	<parameter name="cert" unique="1" required="1">'
+    echo '		<getopt mixed="-c, --cert=[filename]" />'
+    echo '		<content type="string" default="$ec2-home/cert-*.pem" />'
+    echo '		<shortdesc lang="en">The X.509 certificate to use when constructing requests to Amazon EC2</shortdesc>'
+    echo '	</parameter>'
+    echo '	<parameter name="region" unique="1" required="1">'
+    echo '		<getopt mixed="-r, --region=[region]" />'
+    echo '		<content type="string" default="us-east-1" />'
+    echo '		<shortdesc lang="en">The Amazon region for which the device should control instances</shortdesc>'
+    echo '	</parameter>'
+    echo '	<parameter name="tag" unique="1" required="1">'
+    echo '		<getopt mixed="-t, --tag=[tag]" />'
+    echo '		<content type="string" default="Name" />'
+    echo '		<shortdesc lang="en">Name of the tag containing the instances uname</shortdesc>'
+    echo '	</parameter>'
+    echo '</parameters>'
+    echo '<actions>'
+    echo '	<action name="on" />'
+    echo '	<action name="off" />'
+    echo '	<action name="reboot" />'
+    echo '	<action name="status" />'
+    echo '	<action name="list" />'
+    echo '	<action name="monitor" />'
+    echo '	<action name="metadata" />'
+    echo '</actions>'
+    echo '</resource-agent>'
+    exit 0;
+}
+
 function instance_for_port()
 {
     port=$1; shift
@@ -129,7 +189,7 @@ while read line; do
 	cert=*)        ec2_cert=`echo $line | sed s/.*=//`;;
 	region=*)      ec2_region=`echo $line | sed s/.*=//`;;
 	tag=*)         ec2_tag=`echo $line | sed s/.*=//`;;
-	quiet=*)       quiet=`echo $line | sed s/.*=//`;;
+	quiet*)        quiet=1;;
 	--);;
 	*) echo "Invalid command: $line";;
     esac
@@ -192,6 +252,9 @@ case $action in
                else if (/^INSTANCE.*stopped/) { printf "%s %s\n", $2, $4 }
                else if (/^INSTANCE/) { printf "%s %s %s %s\n", $2, $6, $4, $5 }
             }'
+	;;
+    metadata)
+	metadata()
 	;;
     *) echo "Unknown action: $action"; exit 1;;
 esac
