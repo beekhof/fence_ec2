@@ -156,20 +156,28 @@ fi
 
 options="--region $ec2_region --private-key $ec2_key --cert $ec2_cert"
 action=`echo $action | tr 'A-Z' 'a-z'`
+
+instance=""
+if [ ! -z "$port" ]; then
+    instance=`instance_for_port $port $options`
+fi
+
 case $action in 
     reboot|reset) 
-	instance=`instance_for_port $port $options`
 	ec2-reboot-instances $options $instance
 	;;
     poweron|on)
-	instance=`instance_for_port $port $options`
 	ec2-start-instances $options $instance
 	;;
     poweroff|off)
-	instance=`instance_for_port $port $options`
 	ec2-stop-instances $options $instance
 	;;
+    monitor)
+	# Is the device ok?
+	ec2-describe-instances | grep INSTANCE &> /dev/null
+	;;
     hostlist|list)
+	# List of names we know about
 	ec2-describe-instances $options | awk -F '\t' '{ 
                if (/^INSTANCE.*pending/) { printf "%s\n", $2 }
                else if (/^INSTANCE.*stopped/) { printf "%s\n", $2 }
@@ -178,18 +186,12 @@ case $action in
             }'
 	;;
     stat|status)
-	instance=""
-	if [ ! -z "$port" ]; then
-	    instance=`instance_for_port $port $options`
-	fi
+	# List of instances and their current status
 	ec2-describe-instances $options $instance | awk '{ 
                if (/^INSTANCE.*pending/) { printf "%s %s\n", $2, $4 }
                else if (/^INSTANCE.*stopped/) { printf "%s %s\n", $2, $4 }
                else if (/^INSTANCE/) { printf "%s %s %s %s\n", $2, $6, $4, $5 }
             }'
-	;;
-    monitor)
-	ec2-describe-instances | grep INSTANCE &> /dev/null
 	;;
     *) echo "Unknown action: $action"; exit 1;;
 esac
