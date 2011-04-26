@@ -1,0 +1,187 @@
+#!/bin/bash
+#
+# Copyright (c) 2011 Andrew Beekhof
+#                    All Rights Reserved.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of version 2 of the GNU General Public License as
+# published by the Free Software Foundation.
+#
+# This program is distributed in the hope that it would be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+#
+# Further, this software is distributed without any warranty that it is
+# free of the rightful claim of any third person regarding infringement
+# or the like.  Any license provided herein, whether implied or
+# otherwise, applies only to this software file.  Patent licenses, if
+# any, provided herein do not apply to combinations of this program with
+# other software, or any other product whatsoever.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write the Free Software Foundation,
+# Inc., 59 Temple Place - Suite 330, Boston MA 02111-1307, USA.
+#
+#######################################################################
+
+port=""
+action="reset"         # Default fence action
+ec2_tag="Name"	       # EC2 Tag containing the instance's uname
+ec2_key=""	       # EC2 Private Key
+ec2_cert=""	       # EC2 Cert
+ec2_region="us-east-1" # EC2 Region
+
+if [ -z "$EC2_HOME" ]; then
+    EC2_HOME="$HOME/.ec2"
+fi
+
+function usage()
+{
+    echo "`basename $0` - A fencing agent for EC2 instances"
+    echo "" 
+    echo "" 
+    echo "Script for exposing the EC2 API as a fencing device"
+    echo "" 
+    echo "Usage: `basename $0` -o|--action [-n|--port] [options]"
+    echo "Options:"
+    echo " -h, --help 		This text"
+    echo " -V, --version 	Version information"
+    echo " -q, --quiet 		Reduced output mode"
+    echo "" 
+    echo "Commands:"
+    echo " -o, --action 	Action to perform: on|off|reboot|status|monitor"
+    echo " -n, --port 		The name of a machine/instance to control/check"
+    echo ""
+    echo "Additional Options:"
+    echo " -e, --ec2-home 	Location of Amazon EC2 command line tools"
+    echo " -k, --private-key 	The private key to use when constructing requests to Amazon EC2"
+    echo " -c, --cert 		The X.509 certificate to use when constructing requests to Amazon EC2"
+    echo " -r, --region 	The Amazon region for which the device should control instances (defaults to us-east-1)"
+    echo " -t, --tag 		Name of the tag containing the instance's uname"
+    echo "" 
+
+    exit 0;
+}
+
+function instance_for_port()
+{
+    port=$1; shift
+
+    case $port in 
+	i-*) # Nothing to do, supplied port name _is_ the instance name
+	    instance=$port
+	    ;;
+	*)  # Look for uname -n in the Name TAG
+	    instance=`ec2-describe-tags $* | grep TAG.*$ec2_tag.*$port | awk '{print $3}'`
+	    ;;
+    esac
+
+    if [ -z $instance ]; then
+	case $port in 
+	    ec2-*) 
+		# Desperate fallback, look for uname -n in the INSTANCE data
+		# Won't work if the instance is already down
+		instance=`ec2-describe-instances $* | grep INSTANCE.*$port | awk '{print $2}'`	
+		;;
+	esac
+    fi
+    
+    if [ -z $instance ]; then
+	# Need to use something
+	instance=$port
+    fi
+
+    echo $instance
+}
+
+TEMP=`getopt -o qVo:e:k:c:r:n: --long version,help,region:,action:,port:,option:,ec2-home:,private-key:,cert:,quiet \
+     -n 'fence_ec2' -- "$@"`
+
+# Note the quotes around `$TEMP': they are essential!
+eval set -- "$TEMP"
+
+while true ; do
+    case "$1" in
+	-o|--action|--option) action=$2;   shift; shift;;
+	-n|--port)            port=$2;     shift; shift;;
+	-e|--ec2-home)        EC2_HOME=$2; shift; shift;;
+	-k|--private-key)     ec2_key=$2;  shift; shift;;
+	-c|--cert)	      ec2_cert=$2; shift; shift;;
+	-r|--region)          ec2_region=$2; shift; shift;;
+	-t|--tag)		ec2_tag=$2; shift; shift;;
+	-q|--quiet) quiet=1; shift;;
+	-V|--version) echo "1.0.0"; exit 0;;
+	--help|-h) 
+	    usage;
+	    exit 0;;
+	--) shift ; break ;;
+	*) echo "Unknown option: $1. See --help for details."; exit 1;;
+    esac
+done
+
+export EC2_HOME
+PATH=$PATH:$EC2_HOME/bin
+
+if [ -z "$JAVA_HOME" ]; then
+    java=`which java`
+    while [ -L "$java" ]; do
+	java=`/bin/ls -l $java | awk '{print $11}'`
+    done
+    export JAVA_HOME=`dirname $java`/..
+fi
+
+if [ -z "$ec2_key" ]; then
+    ec2_key=`ls $EC2_HOME/pk-*.pem`;
+fi
+
+if [ -z "$ec2_cert" ]; then
+    ec2_cert=`ls $EC2_HOME/cert-*.pem`;
+fi
+
+options="--region $ec2_region --private-key $ec2_key --cert $ec2_cert"
+action=`echo $action | tr 'A-Z' 'a-z'`
+case $action in 
+    reboot|reset) 
+	instance=`instance_for_port $port $options`
+	ec2-reboot-instances $options $instance
+	;;
+    poweron|on)
+	instance=`instance_for_port $port $options`
+	ec2-start-instances $options $instance
+	;;
+    poweroff|off)
+	instance=`instance_for_port $port $options`
+	ec2-stop-instances $options $instance
+	;;
+    hostlist|list)
+	ec2-describe-instances $options | awk -F '\t' '{ 
+               if (/^INSTANCE/) { printf "%s %s %s\n", $2, $4, $5 }
+               else if (/^TAG\tinstance\t.*\tName/) { printf "%s\n", $5 }
+            }'
+	;;
+    stat|status)
+	instance=""
+	if [ ! -z "$port" ]; then
+	    instance=`instance_for_port $port $options`
+	fi
+	ec2-describe-instances $options $instance | awk '{ 
+               if (/^INSTANCE/) { printf "%s %s %s %s\n", $2, $6, $4, $5 }
+               else if (/^TAG\tinstance\t.*\tName/) { printf "%s\n", $5 }
+            }'
+	;;
+    monitor)
+	ec2-describe-instances | grep INSTANCE &> /dev/null
+	;;
+    *) echo "Unknown action: $action"; exit 1;;
+esac
+
+status=$?
+
+if [ $quiet = 1 ]; then
+    : nothing
+elif [ $status = 0 ]; then
+    echo "Operation $action passed"
+else
+    echo "Operation $action failed: $status"
+    exit 1
+fi
