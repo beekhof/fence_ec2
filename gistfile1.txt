@@ -24,6 +24,7 @@
 #
 #######################################################################
 
+quiet=0
 port=""
 action="reset"         # Default fence action
 ec2_tag="Name"	       # EC2 Tag containing the instance's uname
@@ -155,7 +156,9 @@ case $action in
 	;;
     hostlist|list)
 	ec2-describe-instances $options | awk -F '\t' '{ 
-               if (/^INSTANCE/) { printf "%s %s %s\n", $2, $4, $5 }
+               if (/^INSTANCE.*pending/) { printf "%s\n", $2 }
+               else if (/^INSTANCE.*stopped/) { printf "%s\n", $2 }
+               else if (/^INSTANCE/) { printf "%s %s %s\n", $2, $4, $5 }
                else if (/^TAG\tinstance\t.*\tName/) { printf "%s\n", $5 }
             }'
 	;;
@@ -165,8 +168,9 @@ case $action in
 	    instance=`instance_for_port $port $options`
 	fi
 	ec2-describe-instances $options $instance | awk '{ 
-               if (/^INSTANCE/) { printf "%s %s %s %s\n", $2, $6, $4, $5 }
-               else if (/^TAG\tinstance\t.*\tName/) { printf "%s\n", $5 }
+               if (/^INSTANCE.*pending/) { printf "%s %s\n", $2, $4 }
+               else if (/^INSTANCE.*stopped/) { printf "%s %s\n", $2, $4 }
+               else if (/^INSTANCE/) { printf "%s %s %s %s\n", $2, $6, $4, $5 }
             }'
 	;;
     monitor)
