@@ -120,6 +120,21 @@ while true ; do
     esac
 done
 
+while read line; do
+    case $line in 
+        option=*|action=*) action=`echo $line | sed s/.*=//`;;
+        port=*)        port=`echo $line | sed s/.*=//`;;
+	ec2-home=*)    EC2_HOME=`echo $line | sed s/.*=//`;;
+	private-key=*) ec2_key=`echo $line | sed s/.*=//`;;
+	cert=*)        ec2_cert=`echo $line | sed s/.*=//`;;
+	region=*)      ec2_region=`echo $line | sed s/.*=//`;;
+	tag=*)         ec2_tag=`echo $line | sed s/.*=//`;;
+	quiet=*)       quiet=`echo $line | sed s/.*=//`;;
+	--);;
+	*) echo "Invalid command: $line";;
+    esac
+done
+
 export EC2_HOME
 PATH=$PATH:$EC2_HOME/bin
 
