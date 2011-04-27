@@ -155,12 +155,35 @@ function instance_for_port()
     echo $instance
 }
 
-TEMP=`getopt -o qVo:e:k:c:r:n: --long version,help,region:,action:,port:,option:,ec2-home:,private-key:,cert:,quiet \
+TEMP=`getopt -o qVo:e:k:c:r:n:t: --long version,help,region:,action:,port:,option:,ec2-home:,private-key:,cert:,tag:,quiet \
      -n 'fence_ec2' -- "$@"`
+
+if [ $? != 0 ];then 
+    usage
+    exit 1
+fi
 
 # Note the quotes around `$TEMP': they are essential!
 eval set -- "$TEMP"
 
+if [ -z $1 ]; then
+    # If there are no command line args, look for options from stdin
+    while read line; do
+	case $line in 
+            option=*|action=*) action=`echo $line | sed s/.*=//`;;
+            port=*)        port=`echo $line | sed s/.*=//`;;
+	    ec2-home=*)    EC2_HOME=`echo $line | sed s/.*=//`;;
+	    private-key=*) ec2_key=`echo $line | sed s/.*=//`;;
+	    cert=*)        ec2_cert=`echo $line | sed s/.*=//`;;
+	    region=*)      ec2_region=`echo $line | sed s/.*=//`;;
+	    tag=*)         ec2_tag=`echo $line | sed s/.*=//`;;
+	    quiet*)        quiet=1;;
+	    --);;
+	    *) echo "Invalid command: $line";;
+	esac
+    done
+fi
+ 
 while true ; do
     case "$1" in
 	-o|--action|--option) action=$2;   shift; shift;;
@@ -169,7 +192,7 @@ while true ; do
 	-k|--private-key)     ec2_key=$2;  shift; shift;;
 	-c|--cert)	      ec2_cert=$2; shift; shift;;
 	-r|--region)          ec2_region=$2; shift; shift;;
-	-t|--tag)		ec2_tag=$2; shift; shift;;
+	-t|--tag)	      ec2_tag=$2; shift; shift;;
 	-q|--quiet) quiet=1; shift;;
 	-V|--version) echo "1.0.0"; exit 0;;
 	--help|-h) 
@@ -177,21 +200,6 @@ while true ; do
 	    exit 0;;
 	--) shift ; break ;;
 	*) echo "Unknown option: $1. See --help for details."; exit 1;;
-    esac
-done
-
-while read line; do
-    case $line in 
-        option=*|action=*) action=`echo $line | sed s/.*=//`;;
-        port=*)        port=`echo $line | sed s/.*=//`;;
-	ec2-home=*)    EC2_HOME=`echo $line | sed s/.*=//`;;
-	private-key=*) ec2_key=`echo $line | sed s/.*=//`;;
-	cert=*)        ec2_cert=`echo $line | sed s/.*=//`;;
-	region=*)      ec2_region=`echo $line | sed s/.*=//`;;
-	tag=*)         ec2_tag=`echo $line | sed s/.*=//`;;
-	quiet*)        quiet=1;;
-	--);;
-	*) echo "Invalid command: $line";;
     esac
 done
 
@@ -238,12 +246,12 @@ case $action in
 	;;
     hostlist|list)
 	# List of names we know about
-	ec2-describe-instances $options | awk -F '\t' '{ 
+	ec2-describe-instances $options | awk -v tag_pat="^TAG\tinstance\t.*\t$ec2_tag" -F '\t' '{ 
                if (/^INSTANCE.*pending/) { printf "%s\n", $2 }
                else if (/^INSTANCE.*stopped/) { printf "%s\n", $2 }
-               else if (/^INSTANCE/) { printf "%s %s %s\n", $2, $4, $5 }
-               else if (/^TAG\tinstance\t.*\tName/) { printf "%s\n", $5 }
-            }'
+               else if (/^INSTANCE/) { printf "%s\n%s\n%s\n", $2, $4, $5 }
+               else if ( $1"\t"$2"\t"$3"\t"$4 ~ tag_pat ) { printf "%s\n", $5 }
+            }' | sort -u
 	;;
     stat|status)
 	# List of instances and their current status
@@ -254,7 +262,7 @@ case $action in
             }'
 	;;
     metadata)
-	metadata()
+	metadata
 	;;
     *) echo "Unknown action: $action"; exit 1;;
 esac
