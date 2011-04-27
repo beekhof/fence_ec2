@@ -261,11 +261,11 @@ esac
 
 status=$?
 
-if [ $quiet = 1 ]; then
+if [ $quiet -eq 1 ]; then
     : nothing
-elif [ $status = 0 ]; then
+elif [ $status -eq 0 ]; then
     echo "Operation $action passed"
 else
     echo "Operation $action failed: $status"
-    exit 1
 fi
+exit $status
