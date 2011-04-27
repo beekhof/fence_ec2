@@ -1,4 +1,26 @@
 #!/bin/bash
+
+description="
+fence_ec2 is an I/O Fencing agent which can be used with Amazon EC2 instances.
+In order to function, the agent needs the private key and cert used by the Amazon EC2 API.
+
+API functions used by this agent:
+- ec2-describe-tags
+- ec2-describe-instances
+- ec2-stop-instances
+- ec2-start-instances
+- ec2-reboot-instances
+
+If the uname used by the cluster node is any of:
+ - Public DNS name (or part there of),
+ - Private DNS name (or part there of),
+ - Instance ID (eg. i-4f15a839)
+ - Contents of tag associated with the instance
+then the agent should be able to automatically discover the instances it can control.
+
+If the tag containing the uname is not [Name], then it will need to be specified using the [tag] option.
+"
+
 #
 # Copyright (c) 2011 Andrew Beekhof
 #                    All Rights Reserved.
@@ -38,89 +60,89 @@ fi
 
 function usage()
 {
-    echo "`basename $0` - A fencing agent for EC2 instances"
-    echo "" 
-    echo "" 
-    echo "Script for exposing the EC2 API as a fencing device"
-    echo "" 
-    echo "Usage: `basename $0` -o|--action [-n|--port] [options]"
-    echo "Options:"
-    echo " -h, --help 		This text"
-    echo " -V, --version 	Version information"
-    echo " -q, --quiet 		Reduced output mode"
-    echo "" 
-    echo "Commands:"
-    echo " -o, --action 	Action to perform: on|off|reboot|status|monitor"
-    echo " -n, --port 		The name of a machine/instance to control/check"
-    echo ""
-    echo "Additional Options:"
-    echo " -e, --ec2-home 	Location of Amazon EC2 command line tools"
-    echo " -k, --private-key 	The private key to use when constructing requests to Amazon EC2"
-    echo " -c, --cert 		The X.509 certificate to use when constructing requests to Amazon EC2"
-    echo " -r, --region 	The Amazon region for which the device should control instances (defaults to us-east-1)"
-    echo " -t, --tag 		Name of the tag containing the instance's uname"
-    echo "" 
+cat <<EOF
+`basename $0` - A fencing agent for Amazon EC2 instances
+ 
+$description
+ 
+Usage: `basename $0` -o|--action [-n|--port] [options]
+Options:
+ -h, --help 		This text
+ -V, --version		Version information
+ -q, --quiet 		Reduced output mode
+ 
+Commands:
+ -o, --action		Action to perform: on|off|reboot|status|monitor
+ -n, --port 		The name of a machine/instance to control/check
 
+Additional Options:
+ -e, --ec2-home 	Location of Amazon EC2 command line tools
+ -k, --private-key 	The private key to use when constructing requests to Amazon EC2
+ -c, --cert 		The X.509 certificate to use when constructing requests to Amazon EC2
+ -r, --region		The Amazon region for which the device should control instances (defaults to us-east-1)
+ -t, --tag 		Name of the tag containing the instance's uname
+
+EOF
     exit 0;
 }
 
 function metadata()
 {
-    echo '<?xml version="1.0" ?>'
-    echo '<resource-agent name="fence_ec2" shortdesc="Fence agent for Amazon EC2 instances" >'
-    echo '<longdesc>'
-    echo '  fence_ec2 is an I/O Fencing agent which can be used with Amazon EC2 instances.'
-    echo '  Depending on the host names used, the agent should be able to automatically discover the instances it can control'
-    echo '  '
-    echo '  In order to function, the agent needs the private key and cert used by the Amazon EC2 API.'
-    echo '</longdesc>'
-    echo '<parameters>'
-    echo '	<parameter name="action" unique="1" required="1">'
-    echo '		<getopt mixed="-o, --action=[action]" />'
-    echo '		<content type="string" default="reboot" />'
-    echo '		<shortdesc lang="en">Fencing Action</shortdesc>'
-    echo '	</parameter>'
-    echo '	<parameter name="port" unique="1" required="1">'
-    echo '		<getopt mixed="-n, --port=[port]" />'
-    echo '		<content type="string" />'
-    echo '		<shortdesc lang="en">The name/id/tag of a instance to control/check</shortdesc>'
-    echo '	</parameter>'
-    echo '	<parameter name="ec2-home" unique="1" required="1">'
-    echo '		<getopt mixed="-e, --ec2-home=[directory]" />'
-    echo '		<content type="string" default="~/.ec2" />'
-    echo '		<shortdesc lang="en">Location of Amazon EC2 command line tools</shortdesc>'
-    echo '	</parameter>'
-    echo '	<parameter name="private-key" unique="1" required="1">'
-    echo '		<getopt mixed="-k, --private-key=[filename]" />'
-    echo '		<content type="string" default="$ec2-home/pk-*.pem" />'
-    echo '		<shortdesc lang="en">The private key to use when constructing requests to Amazon EC2</shortdesc>'
-    echo '	</parameter>'
-    echo '	<parameter name="cert" unique="1" required="1">'
-    echo '		<getopt mixed="-c, --cert=[filename]" />'
-    echo '		<content type="string" default="$ec2-home/cert-*.pem" />'
-    echo '		<shortdesc lang="en">The X.509 certificate to use when constructing requests to Amazon EC2</shortdesc>'
-    echo '	</parameter>'
-    echo '	<parameter name="region" unique="1" required="1">'
-    echo '		<getopt mixed="-r, --region=[region]" />'
-    echo '		<content type="string" default="us-east-1" />'
-    echo '		<shortdesc lang="en">The Amazon region for which the device should control instances</shortdesc>'
-    echo '	</parameter>'
-    echo '	<parameter name="tag" unique="1" required="1">'
-    echo '		<getopt mixed="-t, --tag=[tag]" />'
-    echo '		<content type="string" default="Name" />'
-    echo '		<shortdesc lang="en">Name of the tag containing the instances uname</shortdesc>'
-    echo '	</parameter>'
-    echo '</parameters>'
-    echo '<actions>'
-    echo '	<action name="on" />'
-    echo '	<action name="off" />'
-    echo '	<action name="reboot" />'
-    echo '	<action name="status" />'
-    echo '	<action name="list" />'
-    echo '	<action name="monitor" />'
-    echo '	<action name="metadata" />'
-    echo '</actions>'
-    echo '</resource-agent>'
+cat <<EOF
+
+<?xml version="1.0" ?>
+<resource-agent name="fence_ec2" shortdesc="Fencing agent for Amazon EC2 instances" >
+    <longdesc>
+$description
+    </longdesc>
+    <parameters>
+	<parameter name="action" unique="1" required="1">
+		<getopt mixed="-o, --action=[action]" />
+		<content type="string" default="reboot" />
+		<shortdesc lang="en">Fencing Action</shortdesc>
+	</parameter>
+	<parameter name="port" unique="1" required="1">
+		<getopt mixed="-n, --port=[port]" />
+		<content type="string" />
+		<shortdesc lang="en">The name/id/tag of a instance to control/check</shortdesc>
+	</parameter>
+	<parameter name="ec2-home" unique="1" required="1">
+		<getopt mixed="-e, --ec2-home=[directory]" />
+		<content type="string" default="~/.ec2" />
+		<shortdesc lang="en">Location of Amazon EC2 command line tools</shortdesc>
+	</parameter>
+	<parameter name="private-key" unique="1" required="1">
+		<getopt mixed="-k, --private-key=[filename]" />
+		<content type="string" default="$ec2-home/pk-*.pem" />
+		<shortdesc lang="en">The private key to use when constructing requests to Amazon EC2</shortdesc>
+	</parameter>
+	<parameter name="cert" unique="1" required="1">
+		<getopt mixed="-c, --cert=[filename]" />
+		<content type="string" default="$ec2-home/cert-*.pem" />
+		<shortdesc lang="en">The X.509 certificate to use when constructing requests to Amazon EC2</shortdesc>
+	</parameter>
+	<parameter name="region" unique="1" required="1">
+		<getopt mixed="-r, --region=[region]" />
+		<content type="string" default="us-east-1" />
+		<shortdesc lang="en">The Amazon region for which the device should control instances</shortdesc>
+	</parameter>
+	<parameter name="tag" unique="1" required="1">
+		<getopt mixed="-t, --tag=[tag]" />
+		<content type="string" default="Name" />
+		<shortdesc lang="en">Name of the tag containing the instances uname</shortdesc>
+	</parameter>
+    </parameters>
+    <actions>
+	<action name="on" />
+	<action name="off" />
+	<action name="reboot" />
+	<action name="status" />
+	<action name="list" />
+	<action name="monitor" />
+	<action name="metadata" />
+    </actions>
+</resource-agent>
+EOF
     exit 0;
 }
 
