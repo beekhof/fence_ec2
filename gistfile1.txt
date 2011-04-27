@@ -172,16 +172,7 @@ function instance_for_port()
 
     if [ -z $instance ]; then
 	instance_not_found=1
-	case $port in 
-	    i-*)
-		# Assume supplied port name _is_ the instance name
-		instance=$port
-		;;
-	    *)
-		# Need to use something
-		instance=$port
-		;;
-	esac
+	instance=$port
     fi
 
     echo $instance
