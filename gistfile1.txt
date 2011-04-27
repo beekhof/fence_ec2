@@ -48,11 +48,16 @@ If the tag containing the uname is not [Name], then it will need to be specified
 
 quiet=0
 port=""
+
+instance_not_found=0
+unknown_are_stopped=0
+
 action="reset"         # Default fence action
 ec2_tag="Name"	       # EC2 Tag containing the instance's uname
 ec2_key=""	       # EC2 Private Key
 ec2_cert=""	       # EC2 Cert
 ec2_region="us-east-1" # EC2 Region
+
 
 if [ -z "$EC2_HOME" ]; then
     EC2_HOME="$HOME/.ec2"
@@ -81,6 +86,9 @@ Additional Options:
  -c, --cert 		The X.509 certificate to use when constructing requests to Amazon EC2
  -r, --region		The Amazon region for which the device should control instances (defaults to us-east-1)
  -t, --tag 		Name of the tag containing the instance's uname
+
+Dangerous options:
+ -U, --unknown-are-stopped 	Assume any unknown instance is safely stopped
 
 EOF
     exit 0;
@@ -131,6 +139,11 @@ $description
 		<content type="string" default="Name" />
 		<shortdesc lang="en">Name of the tag containing the instances uname</shortdesc>
 	</parameter>
+	<parameter name="unknown-are-stopped" unique="1" required="1">
+		<getopt mixed="-U, --unknown-are-stopped" />
+		<content type="string" default="false" />
+		<shortdesc lang="en">DANGER: Assume any unknown instance is safely stopped</shortdesc>
+	</parameter>
     </parameters>
     <actions>
 	<action name="on" />
@@ -150,34 +163,31 @@ function instance_for_port()
 {
     port=$1; shift
 
-    case $port in 
-	i-*) # Nothing to do, supplied port name _is_ the instance name
-	    instance=$port
-	    ;;
-	*)  # Look for uname -n in the Name TAG
-	    instance=`ec2-describe-tags $* | grep TAG.*$ec2_tag.*$port | awk '{print $3}'`
-	    ;;
-    esac
+    # Look for port name -n in the INSTANCE data
+    instance=`ec2-describe-instances $* | grep INSTANCE.*$port | awk '{print $2}'`	
+    if [ -z $instance ]; then
+	# Look for port name -n in the Name TAG
+	instance=`ec2-describe-tags $* | grep TAG.*$ec2_tag.*$port | awk '{print $3}'`
+    fi
 
     if [ -z $instance ]; then
+	instance_not_found=1
 	case $port in 
-	    ec2-*) 
-		# Desperate fallback, look for uname -n in the INSTANCE data
-		# Won't work if the instance is already down
-		instance=`ec2-describe-instances $* | grep INSTANCE.*$port | awk '{print $2}'`	
+	    i-*)
+		# Assume supplied port name _is_ the instance name
+		instance=$port
+		;;
+	    *)
+		# Need to use something
+		instance=$port
 		;;
 	esac
-    fi
-    
-    if [ -z $instance ]; then
-	# Need to use something
-	instance=$port
     fi
 
     echo $instance
 }
 
-TEMP=`getopt -o qVo:e:k:c:r:n:t: --long version,help,region:,action:,port:,option:,ec2-home:,private-key:,cert:,tag:,quiet \
+TEMP=`getopt -o qVo:e:k:c:r:n:t:U --long version,help,region:,action:,port:,option:,ec2-home:,private-key:,cert:,tag:,quiet,unknown-are-stopped \
      -n 'fence_ec2' -- "$@"`
 
 if [ $? != 0 ];then 
@@ -200,6 +210,7 @@ if [ -z $1 ]; then
 	    region=*)      ec2_region=`echo $line | sed s/.*=//`;;
 	    tag=*)         ec2_tag=`echo $line | sed s/.*=//`;;
 	    quiet*)        quiet=1;;
+	    unknown-are-stopped*) unknown_are_stopped=1;;
 	    --);;
 	    *) echo "Invalid command: $line";;
 	esac
@@ -215,6 +226,7 @@ while true ; do
 	-c|--cert)	      ec2_cert=$2; shift; shift;;
 	-r|--region)          ec2_region=$2; shift; shift;;
 	-t|--tag)	      ec2_tag=$2; shift; shift;;
+	-U|--unknown-are-stopped) unknown_are_stopped=1; shift;;
 	-q|--quiet) quiet=1; shift;;
 	-V|--version) echo "1.0.0"; exit 0;;
 	--help|-h) 
@@ -254,13 +266,23 @@ fi
 
 case $action in 
     reboot|reset) 
-	ec2-reboot-instances $options $instance
+	if [ $unknown_are_stopped = 1 -a $instance_not_found ]; then
+	    : nothing we _can_ do
+	    echo "Assuming unknown instance $instance is already off, cannot restart"
+	else
+	    ec2-reboot-instances $options $instance
+	fi
 	;;
     poweron|on)
 	ec2-start-instances $options $instance
 	;;
     poweroff|off)
-	ec2-stop-instances $options $instance
+	if [ $unknown_are_stopped = 1 -a $instance_not_found ]; then
+	    : nothing to do
+	    echo "Assuming unknown instance $instance is already off"
+	else
+	    ec2-stop-instances $options $instance
+	fi
 	;;
     monitor)
 	# Is the device ok?
@@ -277,11 +299,15 @@ case $action in
 	;;
     stat|status)
 	# List of instances and their current status
-	ec2-describe-instances $options $instance | awk '{ 
+	if [ $unknown_are_stopped = 1 -a $instance_not_found ]; then
+	    echo "$instance stopped (unknown)"
+	else
+	    ec2-describe-instances $options $instance | awk '{ 
                if (/^INSTANCE.*pending/) { printf "%s %s\n", $2, $4 }
                else if (/^INSTANCE.*stopped/) { printf "%s %s\n", $2, $4 }
                else if (/^INSTANCE/) { printf "%s %s %s %s\n", $2, $6, $4, $5 }
             }'
+	fi
 	;;
     metadata)
 	metadata
