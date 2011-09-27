@@ -1,0 +1,19 @@
+fence_ec2 is an I/O Fencing agent which can be used with Amazon EC2 instances.
+In order to function, the agent needs the private key and cert used by the Amazon EC2 API.
+
+API functions used by this agent:
+- ec2-describe-tags
+- ec2-describe-instances
+- ec2-stop-instances
+- ec2-start-instances
+- ec2-reboot-instances
+
+If the uname used by the cluster node is any of:
+ - Public DNS name (or part there of),
+ - Private DNS name (or part there of),
+ - Instance ID (eg. i-4f15a839)
+ - Contents of tag associated with the instance
+then the agent should be able to automatically discover the instances it can control.
+
+If the tag containing the uname is not [Name], then it will need to be specified using the [tag] option.
+
