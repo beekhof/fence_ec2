@@ -284,7 +284,12 @@ case $action in
 	    : nothing to do
 	    echo "Assuming unknown instance $instance is already off"
 	else
-	    ec2-stop-instances $options $instance
+	    # Force stop of instance, wait for success
+	    ec2-stop-instances $options $instance --force
+	    while ! ec2-describe-instances $options $instance | grep -q stopped ; do
+		echo "Waiting until instance $instance aka $port is stopped."
+		sleep 5
+	    done
 	fi
 	;;
     monitor)
