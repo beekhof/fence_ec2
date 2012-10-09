@@ -166,7 +166,7 @@ function instance_for_port()
     instance=`ec2-describe-instances $* | grep INSTANCE.*$port | awk '{print $2}'`	
     if [ -z $instance ]; then
 	# Look for port name -n in the Name TAG
-	instance=`ec2-describe-tags $* | grep TAG.*$ec2_tag.*$port | awk '{print $3}'`
+	instance=`ec2-describe-tags $* | grep TAG.*instance.*$ec2_tag.*$port | awk '{print $3}'`
     fi
 
     if [ -z $instance ]; then
