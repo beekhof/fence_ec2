@@ -230,6 +230,12 @@ done
 export EC2_HOME
 PATH=$PATH:$EC2_HOME/bin
 
+action=`echo $action | tr 'A-Z' 'a-z'`
+
+if [ "$action" = "metadata" ]; then
+    metadata
+fi
+
 if [ -z "$JAVA_HOME" ]; then
     java=`which java`
     while [ -L "$java" ]; do
@@ -247,7 +253,6 @@ if [ -z "$ec2_cert" ]; then
 fi
 
 options="--region $ec2_region --private-key $ec2_key --cert $ec2_cert"
-action=`echo $action | tr 'A-Z' 'a-z'`
 
 instance=""
 if [ ! -z "$port" ]; then
