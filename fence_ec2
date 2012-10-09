@@ -97,49 +97,48 @@ EOF
 function metadata()
 {
 cat <<EOF
-
 <?xml version="1.0" ?>
 <resource-agent name="fence_ec2" shortdesc="Fencing agent for Amazon EC2 instances" >
     <longdesc>
 $description
     </longdesc>
     <parameters>
-	<parameter name="action" unique="1" required="1">
+	<parameter name="action" unique="1" required="0">
 		<getopt mixed="-o, --action=[action]" />
 		<content type="string" default="reboot" />
 		<shortdesc lang="en">Fencing Action</shortdesc>
 	</parameter>
-	<parameter name="port" unique="1" required="1">
+	<parameter name="port" unique="1" required="0">
 		<getopt mixed="-n, --port=[port]" />
 		<content type="string" />
 		<shortdesc lang="en">The name/id/tag of a instance to control/check</shortdesc>
 	</parameter>
-	<parameter name="ec2-home" unique="1" required="1">
+	<parameter name="ec2-home" unique="1" required="0">
 		<getopt mixed="-e, --ec2-home=[directory]" />
 		<content type="string" default="~/.ec2" />
 		<shortdesc lang="en">Location of Amazon EC2 command line tools</shortdesc>
 	</parameter>
-	<parameter name="private-key" unique="1" required="1">
+	<parameter name="private-key" unique="1" required="0">
 		<getopt mixed="-k, --private-key=[filename]" />
 		<content type="string" default="$ec2-home/pk-*.pem" />
 		<shortdesc lang="en">The private key to use when constructing requests to Amazon EC2</shortdesc>
 	</parameter>
-	<parameter name="cert" unique="1" required="1">
+	<parameter name="cert" unique="1" required="0">
 		<getopt mixed="-c, --cert=[filename]" />
 		<content type="string" default="$ec2-home/cert-*.pem" />
 		<shortdesc lang="en">The X.509 certificate to use when constructing requests to Amazon EC2</shortdesc>
 	</parameter>
-	<parameter name="region" unique="1" required="1">
+	<parameter name="region" unique="1" required="0">
 		<getopt mixed="-r, --region=[region]" />
 		<content type="string" default="us-east-1" />
 		<shortdesc lang="en">The Amazon region for which the device should control instances</shortdesc>
 	</parameter>
-	<parameter name="tag" unique="1" required="1">
+	<parameter name="tag" unique="1" required="0">
 		<getopt mixed="-t, --tag=[tag]" />
 		<content type="string" default="Name" />
 		<shortdesc lang="en">Name of the tag containing the instances uname</shortdesc>
 	</parameter>
-	<parameter name="unknown-are-stopped" unique="1" required="1">
+	<parameter name="unknown-are-stopped" unique="1" required="0">
 		<getopt mixed="-U, --unknown-are-stopped" />
 		<content type="string" default="false" />
 		<shortdesc lang="en">DANGER: Assume any unknown instance is safely stopped</shortdesc>
