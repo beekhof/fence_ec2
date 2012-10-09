@@ -265,10 +265,18 @@ case $action in
 	    : nothing we _can_ do
 	    echo "Assuming unknown instance $instance is already off, cannot restart"
 	else
-	    ec2-reboot-instances $options $instance
+	    # Force stop of instance, wait for success
+	    ec2-stop-instances $options $instance --force
+	    while ! ec2-describe-instances $options $instance | grep -q stopped ; do
+		echo "Waiting until instance $instance aka $port is stopped."
+		sleep 5
+	    done
 	fi
+	echo "Starting $instance."
+	ec2-start-instances $options $instance
 	;;
     poweron|on)
+	echo "Starting $instance."
 	ec2-start-instances $options $instance
 	;;
     poweroff|off)
