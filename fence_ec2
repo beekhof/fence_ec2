@@ -177,7 +177,7 @@ function instance_for_port()
     echo $instance
 }
 
-TEMP=`getopt -o qVo:e:k:c:r:n:t:U --long version,help,region:,action:,port:,option:,ec2-home:,private-key:,cert:,tag:,quiet,unknown-are-stopped \
+TEMP=`getopt -o qVo:e:k:c:r:n:t:U -l version,help,region:,action:,port:,option:,ec2-home:,private-key:,cert:,tag:,quiet,unknown-are-stopped \
      -n 'fence_ec2' -- "$@"`
 
 if [ $? != 0 ];then 
@@ -188,7 +188,7 @@ fi
 # Note the quotes around `$TEMP': they are essential!
 eval set -- "$TEMP"
 
-if [ -z $1 ]; then
+if [ -z $2 ]; then
     # If there are no command line args, look for options from stdin
     while read line; do
 	case $line in 
